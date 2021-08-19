@@ -1,0 +1,73 @@
+---
+title: "Data Acquisition"
+author: "Andrew.Z.Flores"
+date: "4/10/2020"
+output: html_document
+---
+
+```{r, packages}
+# Uncomment to install
+#install.packages("wordbankr")    
+#install.packages("childesr")
+```
+
+```{r, libraries}
+library(wordbankr) # required to download mcdi forms
+library(childesr)  # required to download CHILDES transcripts
+library(tidyverse)
+```
+
+# Data Acquisition
+## Child Vocabulary Data
+### Mac Arthur Bates Communicative Inventories (MCDI)
+We will begin by downloading all English (American) "Words & Sentences" 
+inventories from wordbank by using the *wordbankr* package and saving the 
+dataset in its raw form.
+
+```{r, download_mcdi}
+# Download MCDI
+get_mcdi <-
+  get_instrument_data("English (American)",
+                      "WS",
+                      administrations = TRUE,
+                      iteminfo = TRUE)
+```
+
+### Child Language Data Exchange System (CHILDES)
+Next we will download all English (American) transcripts using the *childesr* 
+package. This is a large file and make take 5 minutes or so to download.
+```{r, download_childes}
+# Download CHILDES utterances
+childes_utterance <- get_utterances(collection = "Eng-NA")
+```
+
+```{r, select_columns}
+
+#
+select_mcdi <- get_mcdi %>% select(data_id,
+                                   value,
+                                   age,
+                                   definition,
+                                   type,
+                                   lexical_class,
+                                   lexical_category)
+
+select_childes <- childes_utterance %>% select(id,
+                                               target_child_age,
+                                               gloss,
+                                               type,
+                                               speaker_code,
+                                               speaker_role,
+                                               speaker_code,
+                                               collection_name,
+                                               transcript_id)
+```
+
+
+```{r, save_files}
+write.csv(childes_utterance, file = "|1|raw_childes.csv", row.names = FALSE)
+write.csv(get_mcdi, file = "|1|raw_mcdi.csv", row.names = FALSE)
+write.csv(select_childes, file = "|1|select_childes.csv", row.names = FALSE)
+write.csv(select_mcdi, file = "|1|select_mcdi.csv", row.names = FALSE)
+```
+

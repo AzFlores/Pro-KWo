@@ -1,0 +1,396 @@
+---
+title: "Data Cleaning"
+author: "Andrew.Z.Flores"
+date: "4/12/2020"
+output: html_document
+---
+
+```{r warning=FALSE, include=FALSE}
+library(tidyverse)
+```
+
+```{r , load data, include=FALSE, include=FALSE}
+select_mcdi <- read_csv("|1|select_mcdi.csv")
+
+```
+
+# MCDI 
+## Data Exclusion
+In the current data set we exclude items if they fit any of the following 
+criteria: \newline
+
+1. Belonging to the "other" category.
+2. Have categorical responses (e.g "often","sometimes")
+3. Form compound words (e.g play dough, butterfly).
+4. Can act as noun or verb (e.g can(object, can (auxiliary))). 
+5. Specific Items
+```{r, exclude_mcdi}
+select_mcdi <- select_mcdi %>% filter(lexical_class != "other")
+
+exclude_types <- c(
+  "how_use_words",
+  "complexity",
+  "word_endings",
+  "combine",
+  "word_endings_nouns",
+  "word_endings_verbs"
+)
+
+excluded_mcdi <- select_mcdi %>% filter(!type %in% exclude_types)
+
+# replaces specific word meaning (e.g "drink (beverage)" with lemma (drink))
+excluded_mcdi$definition <-
+  recode(
+    excluded_mcdi$definition,
+    "chicken (animal)" = "chicken",
+    "fish (animal)" = "fish",
+    "toy (object)" = "toy",
+    "drink (beverage)" = "drink",
+    "orange (food)" = "orange",
+    "water (beverage)" = "water",
+    "dress (object)" = "dress",
+    "buttocks/bottom*" = "bottom",
+    "owie/boo boo" = "owie",
+    "can (object)" = "can",
+    "tissue/kleenex" = "tissue",
+    "watch (object)" = "watch",
+    "slide (object)" = "slide",
+    "swing (object)" = "swing" ,
+    "church*" = "church",
+    "work (place)" = "work",
+    "daddy*" = "daddy",
+    "grandma*" = "grandma",
+    "grandpa*" = "grandpa",
+    "mommy*" = "mommy",
+    "call (on phone)" = "call",
+    "clean (action)" = "clean",
+    "dry (action)" = "dry",
+    "little (description)" = "little",
+    "inside/in" = "inside",
+    "did/did ya" = "did",
+    "gonna/going to" = "gonna",
+    "gotta/got to" = "gotta",
+    "hafta/have to" = "hafta",
+    "lemme/let me" = "lemme",
+    "need/need to" = "need",
+    "try/try to" = "try",
+    "wanna/want to" = "wanna",
+    "shh/shush/hush" = "hush",
+    "soda/pop" = "soda"
+  )
+
+excluded_mcdi$definition <-
+  recode(
+    excluded_mcdi$definition,
+"grrr"  = "grr",
+    "beads" = "bead",
+    "beans" = "bean",
+    "boots" = "boot",
+    "bubbles" = "bubble",
+    "camping" = "camp",
+    "carrots" = "carrot",
+    "cheerios" = "cheerio",
+    "daddy" = "dad",
+    "gloves" = "glove",
+    "grapes" = "grape",
+    "keys" = "key",
+    "lips" = "lip",
+    "mittens" = "mitten",
+    "mommy" = "mom",
+    "noisy" = "noise",
+    "noodles" = "noodle",
+    "nuts" = "nut",
+    "owie" = "ow",
+    "peas" ="pea",
+    "scared" = "scare",
+    "vitamins" = "vitamin",
+    "yucky" = "yuck")
+
+
+excluded_items <-
+  c("baa baa", 
+    "choo choo", 
+    "quack quack", 
+    "uh oh", 
+    "woof woof", 
+    "yum yum",
+    "play dough", 
+    "chicken (food)", 
+    "fish (food)", 
+    "french fries", 
+    "green beans",
+    "ice cream", 
+    "peanut butter", 
+    "potato chip", 
+    "belly button", 
+    "high chair",
+    "living room", 
+    "rocking chair", 
+    "washing machine", 
+    "play pen", 
+    "lawn mower",
+    "gas station", 
+    "babysitter's name", 
+    "child's own name", 
+    "pet's name",
+    "give me five!", 
+    "gonna get you!", 
+    "go potty", 
+    "night night", 
+    "so big!",
+    "thank you", 
+    "this little piggy", 
+    "turn around", 
+    "drink (action)",
+    "slide (action)", 
+    "swing (action)", 
+    "watch (action)", 
+    "work (action)",
+    "all gone", 
+    "clean (description)", 
+    "dry (description)", 
+    "orange (description)",
+    "next to", "on top of",
+    "a lot", "can (auxiliary)", 
+    "don't",
+    "water (not beverage)", 
+    "butterfly", 
+    "airplane", 
+    "firetruck", 
+    "motorcycle", 
+    "applesauce", 
+    "hamburger", 
+    "lollipop", 
+    "popcorn", 
+    "strawberry", 
+    "snowsuit",
+    "underpants", 
+    "toothbrush", 
+    "bathroom", 
+    "bathtub", 
+    "backyard", 
+    "sandbox",
+    "sidewalk", 
+    "snowman", 
+    "yourself", 
+    "penis*", 
+    "vagina*", 
+    "baby", 
+    "babysitter",
+    "bedroom", 
+    "cookie",
+    "cowboy",
+    "dirty",
+    "does", 
+    "downtown",
+    "fireman", 
+    "glasses", 
+    "grandma", 
+    "grandpa",
+    "hafta",
+    "hers", 
+    "jeans",
+    "jelly",
+    "kitty",
+    "lemme",
+    "mailman",
+     "necklace",
+    "outside",
+    "pajamas",
+    "pancake",
+    "pants",
+    "pattycake",
+    "penny",
+    "peekaboo",
+    "playground",
+    "potty",
+    "puppy",
+    "scissors",
+    "shopping",
+    "shorts",
+    "sleepy",
+    "stairs",
+    "sticky",
+    "teddybear",
+    "tights",
+    "tired",
+    "TV",
+    "I",
+    "windy",
+    "woods")
+
+excluded_mcdi <- excluded_mcdi %>% filter(!definition %in% excluded_items)
+```
+
+## Calculate MCDIp
+```{r, calculate_mcdip}
+# dichotomize "value". (produces = 1, else = 0)
+excluded_mcdi <- excluded_mcdi %>% mutate(value = if_else(is.na(value), 0, 1))
+
+# calculate select_mcdip
+
+excluded_mcdi$value <- as.numeric(excluded_mcdi$value)
+
+select_mcdip <- excluded_mcdi %>% 
+            group_by(definition, age) %>% 
+            summarize(mcdip = mean(value, na.rm =TRUE))
+
+
+
+```
+
+```{r, select_columns}
+# add mcdip values to larger mcdi df
+excluded_mcdi <- full_join(excluded_mcdi, select_mcdip)
+
+# rename columns for mcdi df
+excluded_mcdi <- excluded_mcdi %>%  setNames(c("Subject",
+                                               "Produce",
+                                               "Age",
+                                               "Word",
+                                               "Type",
+                                               "Lexical_Class",
+                                               "Lexical_Category",
+                                               "MCDIp"))
+
+# order excluded_mcdi by word and age
+excluded_mcdi <- excluded_mcdi %>% arrange(Word,Age)
+
+# target words
+target_words <- excluded_mcdi %>% select(Word)  
+                             
+
+target_words <- unique(target_words)
+ 
+# excluded unique mcdip values for each word at each age
+mcdip.unique <-excluded_mcdi %>% select(Age,Word,MCDIp) 
+mcdip.unique <- unique(mcdip.unique)
+```
+
+```{r, save_files}
+write.csv(excluded_mcdi, file = "|2|preprocessed_mcdi.csv", row.names = FALSE)
+write.csv(mcdip.unique, file = "|2|MCDIp_unique.csv", row.names = FALSE)
+write.csv(target_words, file = "|2|target_words.csv", row.names = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

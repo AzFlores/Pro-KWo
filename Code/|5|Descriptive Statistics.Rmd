@@ -1,0 +1,393 @@
+---
+title: "5.- Descriptives"
+output: html_document
+---
+
+```{r, packages}
+library(corrplot)
+library(ggrepel)
+library("ggplot2") 
+library("gghalves")
+library(ggpubr)
+library(gt)
+library(GGally)
+library(lattice)
+library(reshape2)
+library(tidyverse)
+
+```
+
+```{r, load_data}
+MCDI <- as_tibble(read_csv("|4|MCDI_CHILDES.csv"))
+```
+
+# MCDIp Across All Words
+```{r, refactor/clean}
+ages <- c(18,21,24,27,30)
+#lex_classes <- c("nouns","adjectives","verbs")
+categorical <- c("Age","Word","Lexical_Class")
+continuous <- c("MCDIp")
+
+MCDIp <- MCDI %>% select(Word,Age,MCDIp,Lexical_Class,Lexical_Category,
+                         original_freq,original_ld,original_dd,original_pkc) %>% 
+                  filter(Age %in% ages) %>%
+                  unique() 
+                 
+MCDIp[categorical] <- lapply(MCDIp[categorical], factor)
+MCDIp$MCDIp <- as.numeric(MCDIp$MCDIp)
+```
+
+## Table 2. Correlation of all distributional statistics across five age groups
+
+```{r, correlation table}
+
+cor_data_18 <- MCDIp %>% filter(Age == 18) %>% select(original_freq,original_ld,
+                                                original_dd,original_pkc)
+# remove skate (freq = 0)
+cor_data_18 <- cor_data_18 %>% filter(original_ld != 0.000)
+
+
+cor_data_21 <- MCDIp %>% filter(Age == 21) %>% select(original_freq,original_ld,
+                                                original_dd,original_pkc)
+cor_data_24 <- MCDIp %>% filter(Age == 24) %>% select(original_freq,original_ld,
+                                                original_dd,original_pkc)
+cor_data_27 <- MCDIp %>% filter(Age == 27) %>% select(original_freq,original_ld,
+                                                original_dd,original_pkc)
+cor_data_30 <- MCDIp %>% filter(Age == 30) %>% select(original_freq,original_ld,
+                                                original_dd,original_pkc)
+cor_18<-  as.data.frame(cor(cor_data_18)) 
+cor_21<-  as.data.frame(cor(cor_data_21)) 
+cor_24<-  as.data.frame(cor(cor_data_24)) 
+cor_27<-  as.data.frame(cor(cor_data_27)) 
+cor_30<-  as.data.frame(cor(cor_data_30)) 
+
+cor_18 <- cor_18 %>% mutate(Age = 18)
+cor_18 <- rownames_to_column(cor_18)
+
+cor_21 <- cor_21 %>% mutate(Age = 21)
+cor_21 <- rownames_to_column(cor_21)
+
+cor_24 <- cor_24 %>% mutate(Age = 24)
+cor_24 <- rownames_to_column(cor_24)
+
+cor_27 <- cor_27 %>% mutate(Age = 27)
+cor_27 <- rownames_to_column(cor_27)
+
+cor_30 <- cor_30 %>% mutate(Age = 30)
+cor_30 <- rownames_to_column(cor_30)
+
+
+table2_data <- full_join(cor_18,cor_21) %>% full_join(cor_24) %>% full_join(cor_27) %>% full_join(cor_30)
+
+table2_data <- read_csv("table_2data.csv") 
+table2_data %>% gt()
+```
+
+
+```{r}
+table2_data <- as_tibble(table2_data)
+correlation_table<- table2_data %>% gt(rowname_col = "row", groupname_col = "Age") %>%
+  tab_source_note(md("All data analysis code found at: *https://github.com/AzFlores/Pro-KWo*")) %>% 
+  gtsave(
+    "|5|Table2. Correlogram Across Age.png", expand = 10
+  )
+```
+
+
+## Figure 1. Correlation of MCDIp and statistical predictors at 24 months.
+```{r, Correlogram}
+#use only variables to be correlated
+colnames(cor_data_24) <- c("Frequency",
+                            "Lexical Diversity","Document Diversity","Pro-KWo")
+
+#plot
+
+corr_plot.24 <- ggpairs(cor_data_24,columns= c("Frequency","Lexical Diversity",
+                                                "Document Diversity","Pro-KWo") 
+                        ,upper = list(continuous = wrap('cor', size = 8))) + 
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.spacing.x = unit(1.5,"lines"),
+        plot.title = element_text(hjust = 0.5),
+        strip.background = element_rect(fill = "#00539CFF" ),
+        strip.text = element_text(colour = "#FFD662FF" ) ,
+        panel.border = element_rect(color = "steelblue", size = 1, fill = NA)
+        , text = element_text(size=28, face = "bold", hjust = 0.5), 
+        axis.text.x = element_text(size = 17, face = "bold"),
+        axis.text.y = element_text(size = 17, face = "bold")) 
+
+
+
+ggsave(plot = corr_plot.24, "|5|Figure 1. Correlogram.24.png", width = 15 
+       , height = 15)
+```
+
+## Figure 3. Correlation of Distributional Predictors and MCDIp Across Age 
+
+```{r, Age by Predictor Density Plot Matrix}
+figure3_data <- MCDIp %>% select(Age,MCDIp,original_freq,original_ld,
+                                                original_dd,original_pkc) 
+
+colnames(figure3_data) <-c("Age","MCDIp","Frequency",
+                                        "Lexical Diversity","Document Diversity"
+                                        ,"Pro-KWo")
+
+
+
+figure3_data <-  figure3_data %>% 
+  gather(key = "Predictor", value =  "Predictor Value",Frequency:`Pro-KWo`)
+
+figure3_data$Predictor = factor(figure3_data$Predictor, 
+                                levels=c("Frequency","Lexical Diversity",
+                                         "Document Diversity","Pro-KWo"))
+
+#create plot
+Age_Predictor_Matrix.plot <- figure3_data %>% 
+  ggplot(aes(x = `Predictor Value`,y = MCDIp, color = Predictor)) + 
+  geom_point(shape = 1)
+
+#set rows
+Age_Predictor_Matrix.plot <- Age_Predictor_Matrix.plot + 
+  facet_grid(rows = vars(Age))
+
+#set columns
+Age_Predictor_Matrix.plot <- Age_Predictor_Matrix.plot + 
+  facet_grid(cols = vars(Predictor))
+
+#complete matrix
+Age_Predictor_Matrix.plot <- Age_Predictor_Matrix.plot + 
+  facet_grid(vars(Age),vars(Predictor),scales = "free_x")
+
+#add theme
+Age_Predictor_Matrix.plot <- Age_Predictor_Matrix.plot + theme_bw() + 
+  theme(legend.position= "none",
+        text = element_text(size=30, face = "bold", hjust = 0.5)) 
+
+
+Age_Predictor_Matrix.plot <- Age_Predictor_Matrix.plot+ 
+  scale_color_manual(values = c("#eeb1a2","#02a699","#f45c51","#274dc6")
+)
+
+Age_Predictor_Matrix.plot <- Age_Predictor_Matrix.plot +
+    theme(
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() ,
+        panel.spacing.x = unit(1.5,"lines"), 
+        plot.title = element_text(hjust = 0.5),
+        strip.background = element_rect(fill = "#00539CFF" ) ,
+        strip.text = element_text(colour = "#FFD662FF" ) ,
+        panel.border = element_rect(color = "steelblue", size = 1, fill = NA), 
+        text = element_text(size=28, face = "bold", hjust = 0.5), 
+        axis.text.x = element_text(size = 17, face = "bold"),
+        axis.text.y = element_text(size = 17, face = "bold"))  + 
+  geom_smooth(method=lm, se=TRUE, show.legend = TRUE, fill = "lightgray") + 
+  ylim(0,1)
+
+Age_Predictor_Matrix.plot <- Age_Predictor_Matrix.plot + 
+  stat_cor(method = "pearson", color = "black",size = 7,digits = 2,
+    
+    #label.x.npc = "bottom", 
+    #label.y.npc = "right", 
+    
+    )
+
+ ggsave(Age_Predictor_Matrix.plot, 
+        file = "|5|Figure 3. Correlation of MCDIp and Distributional Predictors 
+        Across Age.jpeg",dpi = "retina", 
+        width = 15, height = 15)
+```
+
+
+
+
+##MCDIp Across Grammatical Class
+## Figure 4. MCDIp Scores at 24 months Across Grammatical Class.
+
+
+```{r, Correlogram}
+#Our transformation function
+scaleFUN <- function(x) sprintf("%.2f", x)
+
+
+
+#use only variables to be correlated
+cor_data_24 <- MCDIp %>% filter(Age == 24) %>% select(Word, Lexical_Class,original_freq,original_ld,
+                                                original_dd,original_pkc)
+colnames(cor_data_24) <- c("Word","Lexical_Class","Frequency","Lexical Diversity","Document Diversity","Pro-KWo")
+
+cor_data_24$Lexical_Class <- as.factor(cor_data_24$Lexical_Class)
+
+levels(cor_data_24$Lexical_Class) <- c("Adjective","Function","Noun", "Verb")
+
+#plot
+
+corr_plot.24 <- ggpairs(cor_data_24,columns= c("Frequency","Lexical Diversity","Document Diversity","Pro-KWo"),
+              mapping=ggplot2::aes(colour = Lexical_Class, fontface = "bold"),
+              upper = list(continuous = wrap('cor', size = 8, alpha = 0.9)))  + theme_bw() + 
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() ,
+        plot.title = element_text(hjust = 0.5),
+        panel.spacing.x = unit(1.5,"lines"),
+        strip.background = element_rect(fill = "#00539CFF" ) ,
+        strip.text = element_text(colour = "#FFD662FF" ) ,
+        panel.border = element_rect(color = "steelblue", size = 1, fill = NA), 
+        text = element_text(size=28, face = "bold", hjust = 0.5), 
+        axis.text.x = element_text(size = 17, face = "bold"),
+        axis.text.y = element_text(size = 20, face = "bold")) 
+
+
+
+for(i in 1:corr_plot.24$nrow) {
+  for(j in 1:corr_plot.24$ncol){
+    corr_plot.24[i,j] <- corr_plot.24[i,j] + 
+        scale_fill_manual(values=c("#FFB449","#6fafc7","#bfd46d","#ee5e5e")) +
+        scale_color_manual(values=c("#FFB449","#6fafc7","#bfd46d","#ee5e5e"))  
+  }
+}
+
+
+
+ggsave(plot = corr_plot.24, "|5|Figure 4. Correlogram with Grammatical Class.24.png", width = 15 , height = 15)
+```
+
+
+
+
+
+
+
+## Figure 5. MCDIp Scores at 24 months label.
+```{r, reshape_figure2}
+figure2_data <- MCDIp %>% filter(Age == 24)
+figure2_data <- figure2_data %>% select(Word,Lexical_Class,MCDIp,original_freq,
+                                        original_ld,original_dd,original_pkc)
+
+colnames(figure2_data) <-c("Word","Lexical_Class","MCDIp","Frequency",
+                           "Lexical Diversity","Document Diversity","Pro-KWo")
+
+figure2_data$MCDIp <- as.factor(figure2_data$MCDIp)
+
+figure2_data.melt <- melt(figure2_data, by = c("Word","Lexical Class","MCDIp"))
+
+figure2_data.melt$MCDIp <- as.numeric(as.character(figure2_data.melt$MCDIp))
+
+```
+
+```{r, square}
+#plot 
+Label_Plot.24 <-figure2_data.melt %>%  
+  ggplot(aes(x=value, y= MCDIp, fill = Lexical_Class)) 
+
+Label_Plot.24 <- Label_Plot.24 + geom_label(aes(label = Word), 
+                                            label.size = 0.01) 
+
+Label_Plot.24 <- Label_Plot.24 + 
+  scale_fill_manual(labels =c("Adjectives","Function", "Nouns","Verbs"), 
+                    values = c("#ffd125","#6fafc7","#bfd46d","#ee5e5e")
+)
+
+Label_Plot.24<- Label_Plot.24 + 
+  facet_wrap(~ variable, scales = "free", ncol = 2, nrow = 2) + theme_bw() 
+
+Label_Plot.24<- Label_Plot.24  + 
+  theme(text = element_text(size=20, face = "bold", hjust = 0.5), 
+        legend.position = "top", legend.title = element_blank(), 
+        axis.title.x=element_blank())
+
+Label_Plot.24<- Label_Plot.24 + 
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() ,
+        plot.title = element_text(hjust = 0.5),
+        strip.background = element_rect(fill = "#00539CFF" ) ,
+        strip.text = element_text(colour = "#FFD662FF" ) ,
+        panel.border = element_rect(color = "steelblue", size = 1, fill = NA), 
+        text = element_text(size=28, face = "bold", hjust = 0.5), 
+        axis.text.x = element_text(size = 17, face = "bold"),
+        axis.text.y = element_text(size = 17, face = "bold")) 
+
+ggsave(Label_Plot.24, file = "|5|Figure 5. MCDIp Scores at 24 months.jpeg",
+       dpi = "retina", width = 15, height = 15)
+```
+
+
+## Figure 6. MCDIp Across Grammatical Class
+### Calculate correlation within grammatical class
+```{r, unique- compute_age.grouped}
+figure6_data <-
+  MCDIp %>% filter(Word != "skate") %>% group_by(Age) %>% mutate(
+    all_freq = cor(MCDIp, original_freq),
+    all_ld = cor(MCDIp, original_ld),
+    all_dd = cor(MCDIp, original_dd),
+    all_pkc = cor(MCDIp, original_pkc)
+  )
+```
+
+```{r, unique- compute_age_Lexical_Class_grouped}
+figure6_data <-
+  figure6_data %>% group_by(Age, Lexical_Class) %>% mutate(
+    lex_freq = cor(MCDIp, original_freq),
+    lex_ld = cor(MCDIp, original_ld),
+    lex_dd = cor(MCDIp, original_dd),
+    lex_pkc = cor(MCDIp, original_pkc)
+  )
+
+```
+
+```{r}
+#reshape in order to plot
+
+figure6_data1<- melt(figure6_data, id=c("Age","Lexical_Class"))
+figure6_data1.5 <- unique(figure6_data1)
+
+figure6_data2 <- filter(figure6_data1.5, 
+ variable %in% 
+   c('all_freq','all_ld','all_dd','all_pkc',"lex_freq","lex_ld","lex_dd","lex_pkc"))
+
+figure6_data3 <- figure6_data2 %>% mutate(category = 
+                                      case_when(grepl("all", variable) ~ "All",
+                                  grepl("function", Lexical_Class) ~ "Function",
+                                  grepl("verbs", Lexical_Class) ~ "Verbs",
+                                  grepl("adjectives", Lexical_Class) ~ "Adjectives",
+                                  grepl("nouns", Lexical_Class) ~ "Nouns"))
+
+figure6_data4 <- figure6_data3 %>% mutate(Predictor = 
+                                      case_when(grepl("freq", variable) ~ "Frequency",
+                                  grepl("ld", variable) ~ "Lexical Diversity",
+                                  grepl("dd", variable) ~ "Document Diversity",
+                                  grepl("pkc", variable) ~ "Pro-KWo"))
+                                                                     
+
+
+```
+
+
+```{r, cross-sectional}
+figure6_data4$Predictor = factor(figure6_data4$Predictor , levels=c("Frequency","Document Diversity","Lexical Diversity","Pro-KWo"))
+figure6_data4$value <- as.numeric(figure6_data4$value)
+
+
+
+p <- ggplot(data=figure6_data4,
+            aes(x = Age,y = value,color= category))+
+    geom_line(aes(group = category), size = 2) +
+    geom_point(aes(group = category), size = 2)+ facet_wrap(~ Predictor, nrow = 1)
+                          
+
+#p<- p + geom_point(aes(group = Predictor), size = 2) 
+
+
+p <- p + labs( x = "Age (mo)" , y = "Pearson correlation (r)", color = "Lexical Class")     
+
+p <- p + scale_color_manual(labels =c("Adjectives","All","Function","Nouns","Verbs"), values = c("#ffd125","#000000","#6fafc7","#bfd46d","#ee5e5e"))
+
+
+p <- p +  theme_bw() + theme(legend.position= "top",text = element_text(size=20, face = "bold", hjust = 0.5))
+
+p <- p + theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank() ,plot.title = element_text(hjust = 0.5),strip.background = element_rect(fill = "#00539CFF" ) ,strip.text = element_text(colour = "#FFD662FF" ) ,panel.border = element_rect(color = "steelblue", size = 1, fill = NA), text = element_text(size=22, face = "bold", hjust = 0.5), axis.text.x = element_text(size = 14, face = "bold"),axis.text.y = element_text(size = 14, face = "bold")) 
+
+
+
+ggsave(p, filename = "|5|Figure 4. Correlation Across Ages and Lexical Class.jpeg", width = 15, height = 8)
+```
+
+
