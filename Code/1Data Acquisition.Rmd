@@ -65,9 +65,9 @@ select_childes <- childes_utterance %>% select(id,
 
 
 ```{r, save_files}
-write.csv(childes_utterance, file = "|1|raw_childes.csv", row.names = FALSE)
-write.csv(get_mcdi, file = "|1|raw_mcdi.csv", row.names = FALSE)
-write.csv(select_childes, file = "|1|select_childes.csv", row.names = FALSE)
-write.csv(select_mcdi, file = "|1|select_mcdi.csv", row.names = FALSE)
+write.csv(childes_utterance, file = "raw_childes.csv", row.names = FALSE)
+write.csv(get_mcdi, file = "raw_mcdi.csv", row.names = FALSE)
+write.csv(select_childes, file = "select_childes.csv", row.names = FALSE)
+write.csv(select_mcdi, file = "select_mcdi.csv", row.names = FALSE)
 ```
 
