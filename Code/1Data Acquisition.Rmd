@@ -71,3 +71,11 @@ write.csv(select_childes, file = "select_childes.csv", row.names = FALSE)
 write.csv(select_mcdi, file = "select_mcdi.csv", row.names = FALSE)
 ```
 
+```{r, save_compressed_files}
+write.csv(select_childes, file=gzfile("select_childes.csv.gz"))
+write.csv(select_mcdi, file=gzfile("select_mcdi.csv.gz"))
+
+
+
+```
+
