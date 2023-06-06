@@ -89,22 +89,49 @@ write.csv(final_correlation_table, file = here("supplemental material", "Table 2
 
 ## Table 3
 ```{r}
-# Compute the correlation for each predictor with age
-correlation_by_age <- plotting_dataset %>% 
-  group_by(age) %>%
-  summarise(
-    Frequency = cor(MCDIp, log_FQ, method = "pearson"),
-    `Lexical Diversity` = cor(MCDIp, LD, method = "pearson"),
-    `Document Diversity` = cor(MCDIp, DD, method = "pearson"),
-    `Pro-KWo` = cor(MCDIp, PKC, method = "pearson")
-  )
+# Function to calculate correlations between age groups
+correlation_between_ages <- function(df1, df2) {
+  cor(df1, df2, use = "pairwise.complete.obs", method = "pearson")
+}
+
+# Compute the correlations for each predictor across ages
+correlations_all <- data.frame()
+predictors <- c("MCDIp", "log_FQ", "LD", "DD", "PKC")
+
+for (predictor in predictors) {
+  for (age1 in unique(plotting_dataset$age)) {
+    for (age2 in unique(plotting_dataset$age)) {
+      correlation_value <- correlation_between_ages(
+        subset(plotting_dataset, age == age1)[[predictor]],
+        subset(plotting_dataset, age == age2)[[predictor]])
+      
+      correlations_all <- rbind(correlations_all, 
+                                data.frame(predictor = predictor,
+                                           age1 = age1,
+                                           age2 = age2,
+                                           correlation = correlation_value))
+    }
+  }
+}
+
+# Print the correlation_by_age_all dataframe
+print(correlations_all)
+
+# Write the correlation_by_age_all dataframe to a CSV file in the supplemental material folder
+write.csv(correlations_all, file = here("supplemental material", "Table 3_All.csv"), row.names = F)
+
+# Now filter out the specific ages of interest
+ages <- c(18,21,24,27,30)  # Define the ages of interest
+correlation_by_age <- correlations_all %>% 
+  filter(age1 %in% ages)
 
 # Print the correlation_by_age dataframe
 print(correlation_by_age)
-correlation_by_age_sub <- correlation_by_age %>% filter(age %in% ages)
-# Write the correlation_by_age dataframe to a CSV file
-write.csv(correlation_by_age_sub, file = here("figures_&_tables", "Table 3.csv"),row.names = F)
-write.csv(correlation_by_age, file = here("supplemental material", "Table 3_All.csv"),row.names = F)
+
+# Write the correlation_by_age dataframe to a CSV file in the figures & tables folder
+write.csv(correlation_by_age, file = here("figures_&_tables", "Table 3.csv"), row.names = F)
+
+
 
 ```
  
