@@ -1,0 +1,393 @@
+---
+title: "Inferential Graphs"
+author: "Andrew.Z.Flores"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library(lme4)
+library(lmerTest)
+library(here)
+library(tidyverse) 
+library(jtools)
+library(broom.mixed)
+
+```
+
+# Set the working directory
+```{r}
+# Set the working directory
+folder_path <- here("R_Objects")
+setwd(folder_path)
+
+# List all .Rdata files in the folder
+data_files <- list.files(pattern = "\\.Rdata$")
+
+# Load each .Rdata file
+for (file in data_files) {
+  load(file)
+}
+
+```
+
+# Create a function to calculate the statistics for Single_Model_Estimates 
+
+```{r}
+# Assuming you have fitted the models model8, model8.1, model8.2, and model8.3
+# ...
+
+# List the model objects and their names
+models <- list(model8.0 = model8.0, model8.1 = model8.1, model8.2 = model8.2, model8.3 = model8.3,
+                model9.0 = model9.0, model9.1 = model9.1, model9.2 = model9.2, model9.3 = model9.3,
+                model10.0 = model10.0, model10.1 = model10.1, model10.2 = model10.2, model10.3 = model10.3,
+                model11.0 = model11.0, model11.1 = model11.1, model11.2 = model11.2, model11.3 = model11.3,
+                model12.0 = model12.0, model12.1 = model12.1, model12.2 = model12.2, model12.3 = model12.3)
+
+# List the model objects and their corresponding fixed effects
+models_and_effects <- list(model8.0 = "FQ_scaled", model8.1 = "LD_scaled", model8.2 = "DD_scaled", model8.3 = "PKC_scaled",
+                           model9.0 = "FQ_scaled", model9.1 = "LD_scaled", model9.2 = "DD_scaled", model9.3 = "PKC_Scaled",  # Corrected here
+                           model10.0 = "FQ_scaled", model10.1 = "LD_scaled", model10.2 = "DD_scaled", model10.3 = "PKC_scaled",
+                           model11.0 = "FQ_scaled", model11.1 = "LD_scaled", model11.2 = "DD_scaled", model11.3 = "PKC_scaled",
+                           model12.0 = "FQ_scaled", model12.1 = "LD_scaled", model12.2 = "DD_scaled", model12.3 = "PKC_scaled")
+
+
+# Mapping model numbers to age categories
+age_mapping <- list(model8.0 = 18, model8.1 = 18, model8.2 = 18, model8.3 = 18,
+                    model9.0 = 21, model9.1 = 21, model9.2 = 21, model9.3 = 21,
+                    model10.0 = 24, model10.1 = 24, model10.2 = 24, model10.3 = 24,
+                    model11.0 = 27, model11.1 = 27, model11.2 = 27, model11.3 = 27,
+                    model12.0 = 30, model12.1 = 30, model12.2 = 30, model12.3 = 30)
+
+
+# Function to extract the statistics from a model
+get_stats <- function(model, fixed_effect_name) {
+  coefs <- summary(model)$coefficients
+  if (!fixed_effect_name %in% rownames(coefs)) {
+    warning(paste("Fixed effect", fixed_effect_name, "not found in model. Returning NA."))
+    return(rep(NA, 6))  # return NAs for all values if fixed effect is not found
+  }
+  fixed_effects <- coefs[fixed_effect_name, ]
+  p_value <- 2 * pnorm(-abs(fixed_effects["z value"])) # Two-tailed p-value
+  
+  return(c(
+    LogOdds = fixed_effects["Estimate"],
+    SE = fixed_effects["Std. Error"],
+    z = fixed_effects["z value"],
+    P = p_value,
+    CI_low = fixed_effects["Estimate"] - 1.96 * fixed_effects["Std. Error"],
+    CI_high = fixed_effects["Estimate"] + 1.96 * fixed_effects["Std. Error"]
+  ))
+}
+
+# Calculate the statistics for each model
+stats_list <- mapply(get_stats, models, models_and_effects, SIMPLIFY = FALSE, USE.NAMES = TRUE)
+ 
+# Combine the statistics into a data frame
+stats_df <- do.call(rbind, stats_list)
+
+# Convert to a data frame
+stats_df <- data.frame(stats_df)
+
+# Add an 'Age' column to store the corresponding age categories
+stats_df$Age <- plyr::mapvalues(rownames(stats_df), names(age_mapping), age_mapping)
+
+# Ensure age is treated as a numeric variable
+stats_df$Age <- as.numeric(stats_df$Age)
+
+# Add row names as a new column 'Model'
+stats_df$Model <- rownames(stats_df)
+
+# Add a 'Predictor' column to store the corresponding predictor effects
+stats_df$Predictor <- plyr::mapvalues(rownames(stats_df), names(models_and_effects), models_and_effects)
+
+# Rename the columns to match the desired output
+names(stats_df) <- c("Estimate", "Std. Error", "z-value", "Pr(>|z|)", "2.50%", "97.50%", "Age", "Model", "Predictor")
+
+# Reorder the dataframe by Predictor and Age
+stats_df <- stats_df %>% dplyr::arrange(Predictor, Age)
+
+# Reset row names
+rownames(stats_df) <- NULL
+
+# View the data frame
+print(stats_df)
+```
+
+```{r}
+# Unlist the predictor variable
+stats_df$Predictor <- unlist(stats_df$Predictor)
+
+# Convert the predictor variable to a factor
+stats_df$Predictor <- as.factor(stats_df$Predictor)
+
+# Define the desired order of predictors
+predictor_order <- c("Frequency", "Lexical Diversity", "Document Diversity", "Pro-KWo")
+
+# Define the desired order of ages
+age_order <- c(18, 21, 24, 27, 30)
+
+# Reorder the levels of the age factor to match the desired order
+stats_df$Age <- factor(stats_df$Age, levels = age_order)
+
+# Reorder the rows of the data frame based on the new order of the predictor and age factors
+stats_df <- stats_df[order(stats_df$Predictor, stats_df$Age), ]
+
+# If needed, reorder columns of the data frame
+desired_column_order <- c("Predictor", "Age", "Estimate", "Std. Error", "z-value", "Pr(>|z|)", "2.50%", "97.50%")
+stats_df <- stats_df[, desired_column_order] 
+
+# Use the recode function to change "PKC_Scaled" to "PKC_scaled"
+stats_df$Predictor <- recode(stats_df$Predictor, "PKC_Scaled" = "PKC_scaled")
+
+write.csv(stats_df, "my_table.csv",index)
+
+
+```
+
+# Figure 5
+```{r}
+
+# Convert the Age variable to a factor
+stats_df$Age <- as.factor(stats_df$Age)
+
+figure5_data <- ggplot(data=stats_df, 
+                       aes(x = Age,
+                           y = Estimate, 
+                           group = Predictor)) +
+  geom_pointrange(aes(color = Predictor), ymin = stats_df$`2.50%`, ymax= stats_df$`97.50%`, size = 1, linetype = 1) +
+  geom_line(aes(color = Predictor), size = 2,linetype = 6) +
+  geom_point(aes(color = Predictor), size = 2) +
+  scale_color_manual(values = c("#eeb1a2","#02a699","#f45c51","#274dc6"), labels = c("Document Diversity", "Frequency", "Lexical Diversity", "Pro-KWo")) +
+  labs(x = "Age (mo)" , y = "Estimate Value") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.spacing.x = unit(1.5,"lines"),
+        strip.background = element_rect(fill = "#00539CFF"),
+        strip.text = element_text(colour = "#FFD662FF"),
+        panel.border = element_rect(color = "steelblue", size = 1, fill = NA), 
+        text = element_text(size=28, face = "bold", hjust = 0.5), 
+        axis.text.x = element_text(size = 17, face = "bold"),
+        axis.text.y = element_text(size = 20, face = "bold")) +
+  geom_hline(yintercept=0,linetype=2) +
+  theme(text = element_text(size=25, hjust = 0.5), legend.position = "top", legend.title = element_blank())
+
+# Save the figure
+ggsave(filename = here("figures_&_tables", "Figure 3. Single_Model_Estimates.jpeg"), plot = figure5_data, width = 11, height = 14)
+```
+# Create a function to calculate the statistics for Two_Model_Estimates  
+```{r}
+# List the model objects and their names models 13 to 27
+models <- list(model13 = model13,model14 = model14,model15 = model15,model16 = model16,model17 = model17,
+                model18 = model18,model19 = model19,model20 = model20,model21 = model21,model22 = model22,
+                model23 = model23,model24 = model24,model25 = model25,model26 = model26,model27 = model27)
+
+models_and_effects <- list(model13 = c("FQ_scaled", "PKC_scaled"), model14 = c("FQ_scaled", "PKC_scaled"), model15 = c("FQ_scaled", "PKC_scaled"), model16 = c("FQ_scaled", "PKC_scaled"),model17 = c("FQ_scaled", "PKC_scaled"),
+                           model18= c('LD_scaled', 'PKC_scaled'), model19= c('LD_scaled', 'PKC_scaled'), model20= c('LD_scaled', 'PKC_scaled'), model21= c('LD_scaled', 'PKC_scaled'), model22= c('LD_scaled', 'PKC_scaled'),
+                           model23= c('DD_scaled', 'PKC_scaled'), model24= c('DD_scaled', 'PKC_scaled'), model25= c('DD_scaled', 'PKC_scaled'), model26= c('DD_scaled', 'PKC_scaled'), model27= c('DD_scaled', 'PKC_scaled'))
+
+# Mapping model numbers to age categories
+
+age_mapping <- list(model13 = 18, model14 = 21, model15 = 24, model16 = 27,model17= 30,
+                    model18 = 18, model19 = 21, model20 = 24, model21 = 27,model22= 30,
+                    model23 = 18, model24 = 21, model25 = 24, model26 = 27,model27= 30)
+
+                    # Function to extract the statistics from a model (now handles multiple predictors)
+get_stats <- function(model, fixed_effect_names) {
+  # Initialize an empty list to store stats for each predictor
+  stats_list <- list()
+  
+  # For each predictor...
+  for (fixed_effect_name in fixed_effect_names) {
+    coefs <- summary(model)$coefficients
+    
+    # If the predictor is not found in the model, issue a warning and skip to the next predictor
+    if (!fixed_effect_name %in% rownames(coefs)) {
+      warning(paste("Fixed effect", fixed_effect_name, "not found in model. Skipping this effect."))
+      next
+    }
+  
+    fixed_effects <- coefs[fixed_effect_name, ]
+    p_value <- 2 * pnorm(-abs(fixed_effects["z value"])) # Two-tailed p-value
+  
+    stats <- c(
+      LogOdds = fixed_effects["Estimate"],
+      SE = fixed_effects["Std. Error"],
+      z = fixed_effects["z value"],
+      P = p_value,
+      CI_low = fixed_effects["Estimate"] - 1.96 * fixed_effects["Std. Error"],
+      CI_high = fixed_effects["Estimate"] + 1.96 * fixed_effects["Std. Error"],
+      Predictor = fixed_effect_name  # Store predictor name as part of stats
+    )
+  
+    # Append the stats to the list
+    stats_list[[fixed_effect_name]] <- stats
+  }
+  
+  return(stats_list)
+}
+
+# Calculate the statistics for each model and predictor
+stats_list <- mapply(get_stats, models, models_and_effects, SIMPLIFY = FALSE, USE.NAMES = TRUE)
+
+# Flatten the list of statistics into a data frame
+stats_df <- do.call(rbind, unlist(stats_list, recursive = FALSE))
+
+# Convert to a data frame
+stats_df <- data.frame(stats_df)
+
+# Add an 'Age' column to store the corresponding age categories
+stats_df$Age <- plyr::mapvalues(rownames(stats_df), names(age_mapping), age_mapping)
+
+# Ensure age is treated as a numeric variable
+stats_df$Age <- as.numeric(stats_df$Age)
+
+# Add row names as a new column 'Model'
+stats_df$Model <- gsub("\\..*$", "", rownames(stats_df))  # Extract model name before the "." in row names
+
+# Rename the columns to match the desired output
+names(stats_df) <- c("Estimate", "Std. Error", "z-value", "Pr(>|z|)", "2.50%", "97.50%", "Predictor", "Age", "Model")
+
+# Update Age column based on Model column
+stats_df$Age <- plyr::mapvalues(stats_df$Model, names(age_mapping), age_mapping)
+
+# Reorder the dataframe by Predictor and Age
+stats_df <- stats_df %>% dplyr::arrange(Predictor, Age)
+
+# Reset row names
+rownames(stats_df) <- NULL
+
+# View the data frame
+print(stats_df)
+```
+
+# Create table for Two_Model_Estimates
+```{r}
+library(knitr)
+
+# Create groups for each Age
+groups <- unique(stats_df$Age)
+
+# For each group, create a sub-table
+for (age in groups) {
+  df <- stats_df[stats_df$Age == age, ]
+  
+  # Print the age
+  cat(paste0(age, "\n"))
+  
+  # Print the table
+  print(kable(df[, c("Predictor", "Estimate", "Std. Error", "z-value", "Pr(>|z|)", "2.50%", "97.50%")], 
+               row.names = FALSE, 
+               col.names = c("Predictor", "Estimate", "Std. Error", "z-value", "p-value", "2.50%", "97.50%"),
+               format = "markdown"))
+}
+``` 
+
+# Create a summary table of Age * Predictor models.
+```{r}
+# Define a function to generate summary from a model
+model_summary <- function(model, predictor){
+  # Generate summary dataframe and add Model column
+  summary <- broom.mixed::tidy(model) %>% 
+              select(term, estimate, std.error, statistic, p.value) %>% 
+              mutate(conf.low = estimate - 1.96*std.error,
+                     conf.high = estimate + 1.96*std.error) %>%
+              rename(Factor = term,
+                     LogOdds = estimate,
+                     SE = std.error,
+                     z = statistic,
+                     `P(>|z|)` = p.value,
+                     `2.5%` = conf.low,
+                     `97.5%` = conf.high) %>%
+              mutate(Model = paste0("Model_", predictor))
+  return(summary)
+}
+
+# Load models
+load("R_Objects/model28.Rdata")
+load("R_Objects/model29.Rdata")
+load("R_Objects/model30.Rdata")
+load("R_Objects/model31.Rdata")
+
+# Create a list of models and their respective predictor names
+models_list <- list(model28 = "FQ_scaled", model29 = "LD_scaled", model30 = "DD_scaled", model31 = "PKC_scaled")
+
+# Initialize an empty data frame for storing summaries
+summary_df <- data.frame()
+
+# Iterate over models and append their summaries to the summary_df
+for(i in 1:length(models_list)){
+  model <- get(names(models_list)[i])
+  predictor <- models_list[[i]]
+  summary <- model_summary(model, predictor)
+  summary_df <- rbind(summary_df, summary)
+}
+
+# Save the summary_df to a CSV
+write.csv(summary_df, file = here("data","interaction_models.csv"),row.names = F)
+``` 
+# Figure 7 Correlation of MCDIp with predicted model probabilities at 24 months. Positive values along the x-axis represent over predictions, while negative values represent under predicted values.
+## Load model (model32)
+## Create a dataframe of predicted probabilities
+```{r}
+# Load the saved model
+load(file = here("R_Objects", "model32.Rdata"))
+
+# Ensure "word" and "MCDIp" columns are included in the data
+model32_subset <- model32_subset %>% select(word, MCDIp, everything())
+
+# Generate model probabilities
+model32_subset$predicted_probabilities <- predict(model32, newdata = model32_subset, type = "response", re.form = NA)
+
+# Drop duplicates
+model32_results <- model32_subset %>%
+    select(word, MCDIp, predicted_probabilities) %>%
+    distinct()
+```
+
+# plot model probabilities 
+```{r}
+word_stats <- read.csv(file = here('data','target_words.csv'))
+
+
+model32_results <- full_join(model32_results,word_stats)
+
+model32_results <- model32_results %>% mutate(`(MCDIp-Predicted
+                                                Probability)`= predicted_probabilities-MCDIp)
+                                               
+                                               model32_results <- model32_results %>%
+  mutate(lexical_class = recode(lexical_class,
+                                'function_words' = 'Function',
+                                'verbs' = 'Verbs',
+                                'nouns' = 'Nouns',
+                                'adjectives' = 'Adjectives'))
+```
+
+```{r}
+Residuals_Plot.24 <- model32_results %>%
+  ggplot(aes(x = `(MCDIp-Predicted
+                                                Probability)`, y = MCDIp, fill = lexical_class, label = word)) +
+  geom_label(size = 5, alpha = 0.6) +
+  stat_smooth(method = 'lm', se = TRUE, color = "black", aes(group = lexical_class, color = lexical_class)) +
+  scale_fill_manual(labels =c("Adjectives","Function", "Nouns","Verbs"), 
+                    values = c("#ffd125","#6fafc7","#bfd46d","#ee5e5e")) +
+  theme_bw() +
+  labs(x = "MCDIp - Predicted Probability", y = "MCDIp") +
+  theme(legend.position = "top", 
+        legend.title = element_blank(), 
+        legend.text = element_text(size = 20, face = "bold"),
+        axis.title.x=element_text(size = 20, face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5, size = 28, face = "bold"),
+        strip.background = element_rect(fill = "#00539CFF" ) ,
+        strip.text = element_text(colour = "#FFD662FF", size = 28, face = "bold" ) ,
+        panel.border = element_rect(color = "steelblue", size = 1, fill = NA), 
+        axis.text.x = element_text(size = 17, face = "bold"),
+        axis.text.y = element_text(size = 17, face = "bold"))
+
+ggsave(Residuals_Plot.24, file = here('figures_&_tables',"Figure7.Residuals.jpeg"), dpi = "retina", width = 17, height = 15)
+```
+
