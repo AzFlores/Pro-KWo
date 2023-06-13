@@ -1,0 +1,61 @@
+---
+title: "data-acquisition"
+author: "Andrew.Z.Flores"
+date: "`r Sys.Date()`"
+output: html_document
+---
+```{r}
+# Install packages (uncomment to install)
+#install.packages("childesr")
+
+# Load required libraries
+library(childesr)  # Required to download CHILDES transcripts
+library(tidyverse) # Required for data manipulation
+library(here)
+```
+
+
+# Data Acquisition
+## Child Vocabulary Data
+### Mac Arthur Bates Communicative Inventories (MCDI)
+
+Download the MCDI dataset by accesing the wordbank website. Under `data`, select the Full Child-by-Word Data. Doing so will initate a download of the full mcdi dataset. We have saved this dataset to the data file. 
+
+### Child Language Data Exchange System (CHILDES)
+Next we will download all English (American) transcripts using the *childesr*
+package. This is a large file and make take 5 minutes or so to download.
+```{r, download_childes}
+# Download CHILDES utterances
+childes_data_raw <- get_utterances(collection = "Eng-NA")
+
+# Select relevant columns
+childes_data_select <- childes_data_raw %>%
+  select(id,
+         target_child_age,
+         gloss,
+         type,
+         speaker_code,
+         speaker_role,
+         collection_name,
+         transcript_id)
+
+# transcript information
+childes_transcripts <- get_transcripts()
+
+```
+
+```{r}
+#Create data file structure
+data_folder <- here("data")
+if (!dir.exists(data_folder)) {
+  dir.create(data_folder)
+}
+
+# Save data frames to CSV files
+write.csv(childes_data_raw, file = here("data","raw_childes.csv"), row.names = FALSE)
+write.csv(childes_data_select, file = here("data", "select_childes.csv"), row.names = FALSE)
+write.csv(childes_transcripts, file = here("data", "childes transcripts.csv"), row.names = FALSE)
+```
+
+
+
